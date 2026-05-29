@@ -19,7 +19,7 @@ from litestar.middleware.compression.facade import CompressionFacade
 from litestar.response.streaming import Stream
 from litestar.status_codes import HTTP_200_OK
 from litestar.testing import create_test_client
-from litestar.types.asgi_types import ASGIApp, HTTPResponseBodyEvent, HTTPResponseStartEvent, Message, Scope
+from litestar.types.asgi_types import HTTPResponseBodyEvent, HTTPResponseStartEvent, Message, Scope
 
 if sys.version_info >= (3, 14):
     from compression import zstd
@@ -222,16 +222,15 @@ async def test_compression_streaming_response_emitted_messages(
     backend: Literal["gzip", "brotli", "zstd"],
     compression_encoding: CompressionEncoding,
     create_scope: Callable[..., Scope],
-    mock_asgi_app: ASGIApp,
 ) -> None:
     mock = MagicMock()
 
     async def fake_send(message: Message) -> None:
         mock(message)
 
-    wrapped_send = CompressionMiddleware(
-        mock_asgi_app, CompressionConfig(backend=backend)
-    ).create_compression_send_wrapper(fake_send, compression_encoding, create_scope())
+    wrapped_send = CompressionMiddleware(CompressionConfig(backend=backend)).create_compression_send_wrapper(
+        fake_send, compression_encoding, create_scope()
+    )
 
     await wrapped_send(HTTPResponseStartEvent(type="http.response.start", status=200, headers={}))
     # first body message always has compression headers (at least for gzip)

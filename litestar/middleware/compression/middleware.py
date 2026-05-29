@@ -6,8 +6,8 @@ from io import BytesIO
 from typing import TYPE_CHECKING, Any, Literal
 
 from litestar.datastructures import Headers, MutableScopeHeaders
-from litestar.enums import CompressionEncoding, ScopeType
-from litestar.middleware.base import AbstractMiddleware
+from litestar.enums import CompressionEncoding
+from litestar.middleware.base import ASGIMiddleware
 from litestar.middleware.compression.gzip_facade import GzipCompression
 from litestar.utils.empty import value_or_default
 from litestar.utils.scope.state import ScopeState
@@ -29,31 +29,31 @@ if TYPE_CHECKING:
         Compressor = Any
 
 
-class CompressionMiddleware(AbstractMiddleware):
-    """Compression Middleware Wrapper.
+class CompressionMiddleware(ASGIMiddleware):
+    """Compression Middleware Wrapper."""
 
-    This is a wrapper allowing for generic compression configuration / handler middleware
-    """
-
-    def __init__(self, app: ASGIApp, config: CompressionConfig) -> None:
-        """Initialize ``CompressionMiddleware``
+    def __init__(self, config: CompressionConfig) -> None:
+        """Initialize ``CompressionMiddleware``.
 
         Args:
-            app: The ``next`` ASGI app to call.
             config: An instance of CompressionConfig.
         """
-        super().__init__(
-            app=app, exclude=config.exclude, exclude_opt_key=config.exclude_opt_key, scopes={ScopeType.HTTP}
-        )
         self.config = config
 
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+    async def handle(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+        next_app: ASGIApp,
+    ) -> None:
         """ASGI callable.
 
         Args:
             scope: The ASGI connection scope.
             receive: The ASGI receive function.
             send: The ASGI send function.
+            next_app: The next ASGI application in the middleware stack to call.
 
         Returns:
             None
@@ -62,7 +62,7 @@ class CompressionMiddleware(AbstractMiddleware):
         config = self.config
 
         if config.compression_facade.encoding in accept_encoding:
-            await self.app(
+            await next_app(
                 scope,
                 receive,
                 self.create_compression_send_wrapper(
@@ -72,7 +72,7 @@ class CompressionMiddleware(AbstractMiddleware):
             return
 
         if config.gzip_fallback and CompressionEncoding.GZIP in accept_encoding:
-            await self.app(
+            await next_app(
                 scope,
                 receive,
                 self.create_compression_send_wrapper(
@@ -81,7 +81,7 @@ class CompressionMiddleware(AbstractMiddleware):
             )
             return
 
-        await self.app(scope, receive, send)
+        await next_app(scope, receive, send)
 
     def create_compression_send_wrapper(
         self,

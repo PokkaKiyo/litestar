@@ -207,7 +207,7 @@ def build_route_middleware_stack(
             asgi_handler = CSRFMiddleware(app=asgi_handler, config=app.csrf_config)
 
         if app.compression_config:
-            asgi_handler = CompressionMiddleware(app=asgi_handler, config=app.compression_config)
+            asgi_handler = CompressionMiddleware(config=app.compression_config)(asgi_handler)
 
         if has_cached_route:
             asgi_handler = ResponseCacheMiddleware(app=asgi_handler, config=app.response_cache_config)
