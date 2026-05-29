@@ -151,7 +151,7 @@ class CompressionMiddleware(ASGIMiddleware):
                         del headers["Content-Length"]
                         connection_state.response_compressed = True
 
-                        facade.write(body, final=not more_body)
+                        facade.write(body, final=False)
 
                         message["body"] = bytes_buffer.getvalue()
                         bytes_buffer.seek(0)
@@ -160,7 +160,7 @@ class CompressionMiddleware(ASGIMiddleware):
                         await send(message)
 
                     elif len(body) >= self.config.minimum_size:
-                        facade.write(body, final=not more_body)
+                        facade.write(body, final=True)
                         facade.close()
                         body = bytes_buffer.getvalue()
 
