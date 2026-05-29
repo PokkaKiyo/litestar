@@ -9,7 +9,6 @@ from litestar.datastructures import Headers, MutableScopeHeaders
 from litestar.enums import CompressionEncoding
 from litestar.middleware.base import ASGIMiddleware
 from litestar.middleware.compression.gzip_facade import GzipCompression
-from litestar.utils.empty import value_or_default
 from litestar.utils.scope.state import ScopeState
 
 if TYPE_CHECKING:
@@ -129,7 +128,7 @@ class CompressionMiddleware(ASGIMiddleware):
                 initial_message = message
                 return
 
-            if initial_message is not None and value_or_default(connection_state.is_cached, False):
+            if initial_message is not None and connection_state.is_cached is True:
                 await send(initial_message)
                 await send(message)
                 facade.close()
