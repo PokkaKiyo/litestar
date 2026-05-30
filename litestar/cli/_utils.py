@@ -419,7 +419,9 @@ def show_app_info(app: Litestar) -> None:  # pragma: no cover
         openapi_enabled += f" path=[yellow]{path}"
     table.add_row("OpenAPI", openapi_enabled)
 
-    table.add_row("Compression", app.compression_config.backend if app.compression_config else "[red]Disabled")
+    table.add_row(
+        "Compression", str(list(app.compression_config.backends)) if app.compression_config else "[red]Disabled"
+    )
 
     if app.template_engine:
         table.add_row("Template engine", type(app.template_engine).__name__)
