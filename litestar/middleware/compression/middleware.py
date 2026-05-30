@@ -9,7 +9,6 @@ from litestar.datastructures import Headers, MutableScopeHeaders
 from litestar.enums import CompressionEncoding, ScopeType
 from litestar.middleware.base import AbstractMiddleware
 from litestar.middleware.compression.gzip_facade import GzipCompression
-from litestar.utils.empty import value_or_default
 from litestar.utils.scope.state import ScopeState
 
 if TYPE_CHECKING:
@@ -129,7 +128,7 @@ class CompressionMiddleware(AbstractMiddleware):
                 initial_message = message
                 return
 
-            if initial_message is not None and value_or_default(connection_state.is_cached, False):
+            if initial_message is not None and connection_state.is_cached is True:
                 await send(initial_message)
                 await send(message)
                 facade.close()
@@ -152,7 +151,7 @@ class CompressionMiddleware(AbstractMiddleware):
                         del headers["Content-Length"]
                         connection_state.response_compressed = True
 
-                        facade.write(body, final=not more_body)
+                        facade.write(body, final=False)
 
                         message["body"] = bytes_buffer.getvalue()
                         bytes_buffer.seek(0)
@@ -161,7 +160,7 @@ class CompressionMiddleware(AbstractMiddleware):
                         await send(message)
 
                     elif len(body) >= self.config.minimum_size:
-                        facade.write(body, final=not more_body)
+                        facade.write(body, final=True)
                         facade.close()
                         body = bytes_buffer.getvalue()
 
