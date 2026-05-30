@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 from io import BytesIO
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from litestar.datastructures import Headers, MutableScopeHeaders
-from litestar.enums import CompressionEncoding, ScopeType
+from litestar.datastructures.headers import Accept
+from litestar.enums import ScopeType
 from litestar.middleware.base import AbstractMiddleware
-from litestar.middleware.compression.gzip_facade import GzipCompression
+from litestar.utils.empty import value_or_raise
 from litestar.utils.scope.state import ScopeState
 
 if TYPE_CHECKING:
-    from litestar.config.compression import CompressionConfig
+    from litestar.config.compression import CompressionConfig, CompressionSettings
     from litestar.types import (
         ASGIApp,
         HTTPResponseStartEvent,
@@ -40,6 +41,7 @@ class CompressionMiddleware(AbstractMiddleware):
             app=app, exclude=config.exclude, exclude_opt_key=config.exclude_opt_key, scopes={ScopeType.HTTP}
         )
         self.config = config
+        self.provided_types = list(config.backends)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """ASGI callable.
@@ -52,25 +54,16 @@ class CompressionMiddleware(AbstractMiddleware):
         Returns:
             None
         """
-        accept_encoding = Headers.from_scope(scope).get("accept-encoding", "")
-        config = self.config
-
-        if config.compression_facade.encoding in accept_encoding:
+        accept = Accept(Headers.from_scope(scope).get("accept-encoding", ""))
+        if (encoding := accept.best_match(provided_types=self.provided_types)) is not None:
             await self.app(
                 scope,
                 receive,
                 self.create_compression_send_wrapper(
-                    send=send, compression_encoding=config.compression_facade.encoding, scope=scope
-                ),
-            )
-            return
-
-        if config.gzip_fallback and CompressionEncoding.GZIP in accept_encoding:
-            await self.app(
-                scope,
-                receive,
-                self.create_compression_send_wrapper(
-                    send=send, compression_encoding=CompressionEncoding.GZIP, scope=scope
+                    compression_encoding=encoding,
+                    compression_settings=self.config.backends[encoding],
+                    send=send,
+                    scope=scope,
                 ),
             )
             return
@@ -79,31 +72,28 @@ class CompressionMiddleware(AbstractMiddleware):
 
     def create_compression_send_wrapper(
         self,
+        compression_encoding: str,
+        compression_settings: CompressionSettings,
         send: Send,
-        compression_encoding: Literal[CompressionEncoding.BROTLI, CompressionEncoding.GZIP, CompressionEncoding.ZSTD]
-        | str,
         scope: Scope,
     ) -> Send:
         """Wrap ``send`` to handle brotli compression.
 
         Args:
-            send: The ASGI send function.
             compression_encoding: The compression encoding used.
+            compression_settings: The settings for the compression encoding.
+            send: The ASGI send function.
             scope: The ASGI connection scope
 
         Returns:
             An ASGI send function.
         """
         bytes_buffer = BytesIO()
-
-        # We can't use `self.config.compression_facade` directly if the compression is `gzip` since
-        # it may be being used as a fallback.
-        if compression_encoding == CompressionEncoding.GZIP:
-            facade = GzipCompression(buffer=bytes_buffer, compression_encoding=compression_encoding, config=self.config)
-        else:
-            facade = self.config.compression_facade(  # type: ignore[assignment]
-                buffer=bytes_buffer, compression_encoding=compression_encoding, config=self.config
-            )
+        facade = value_or_raise(compression_settings.compression_facade)(
+            buffer=bytes_buffer,
+            compression_encoding=compression_encoding,
+            config=self.config,
+        )
 
         initial_message: HTTPResponseStartEvent | None = None
         started = False
@@ -154,7 +144,7 @@ class CompressionMiddleware(AbstractMiddleware):
                         await send(initial_message)
                         await send(message)
 
-                    elif len(body) >= self.config.minimum_size:
+                    elif len(body) >= compression_settings.minimum_size:
                         facade.write(body, final=True)
                         facade.close()
                         body = bytes_buffer.getvalue()

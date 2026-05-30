@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from typing import TYPE_CHECKING, Literal
 
+from litestar.config.compression import ZstdCompressionSettings
 from litestar.enums import CompressionEncoding
 from litestar.exceptions import MissingDependencyException
 from litestar.middleware.compression.facade import CompressionFacade
@@ -14,6 +15,7 @@ else:
         from backports import zstd
     except ImportError as e:
         raise MissingDependencyException("backports.zstd", extra="zstd") from e
+
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -35,7 +37,8 @@ class ZstdCompression(CompressionFacade):
     ) -> None:
         self.buffer = buffer
         self.compression_encoding = compression_encoding
-        self.compressor = zstd.ZstdCompressor(level=config.zstd_compress_level)
+        settings = config.backends.get("zstd", ZstdCompressionSettings())
+        self.compressor = zstd.ZstdCompressor(level=settings.compress_level)
 
     def write(
         self,

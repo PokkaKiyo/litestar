@@ -18,7 +18,10 @@ class CompressionFacade(Protocol):
     """The encoding of the compression."""
 
     def __init__(
-        self, buffer: BytesIO, compression_encoding: CompressionEncoding | str, config: CompressionConfig
+        self,
+        buffer: BytesIO,
+        compression_encoding: CompressionEncoding | str,
+        config: CompressionConfig,
     ) -> None:
         """Initialize ``CompressionFacade``.
 

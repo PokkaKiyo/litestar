@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+from litestar.config.compression import BrotliCompressionSettings
 from litestar.enums import CompressionEncoding
 from litestar.exceptions import MissingDependencyException
 from litestar.middleware.compression.facade import CompressionFacade
@@ -36,11 +37,12 @@ class BrotliCompression(CompressionFacade):
             "font": int(MODE_FONT),
             "generic": int(MODE_GENERIC),
         }
+        settings = config.backends.get("brotli", BrotliCompressionSettings())
         self.compressor = Compressor(
-            quality=config.brotli_quality,
-            mode=modes[config.brotli_mode],
-            lgwin=config.brotli_lgwin,
-            lgblock=config.brotli_lgblock,
+            quality=settings.quality,
+            mode=modes[settings.mode],
+            lgwin=settings.lgwin,
+            lgblock=settings.lgblock,
         )
 
     def write(self, body: bytes | bytearray, final: bool = False) -> None:

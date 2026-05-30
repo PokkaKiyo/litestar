@@ -3,6 +3,7 @@ from __future__ import annotations
 from gzip import GzipFile
 from typing import TYPE_CHECKING, Literal
 
+from litestar.config.compression import GzipCompressionSettings
 from litestar.enums import CompressionEncoding
 from litestar.middleware.compression.facade import CompressionFacade
 
@@ -18,11 +19,15 @@ class GzipCompression(CompressionFacade):
     encoding = CompressionEncoding.GZIP
 
     def __init__(
-        self, buffer: BytesIO, compression_encoding: Literal[CompressionEncoding.GZIP] | str, config: CompressionConfig
+        self,
+        buffer: BytesIO,
+        compression_encoding: Literal[CompressionEncoding.GZIP] | str,
+        config: CompressionConfig,
     ) -> None:
         self.buffer = buffer
         self.compression_encoding = compression_encoding
-        self.compressor = GzipFile(mode="wb", fileobj=buffer, compresslevel=config.gzip_compress_level)
+        settings = config.backends.get("gzip", GzipCompressionSettings())
+        self.compressor = GzipFile(mode="wb", fileobj=buffer, compresslevel=settings.compress_level)
 
     def write(self, body: bytes | bytearray, final: bool = False) -> None:
         data = bytes(body)

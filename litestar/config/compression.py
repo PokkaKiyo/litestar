@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias, TypedDict
 
 from litestar.exceptions import ImproperlyConfiguredException
 from litestar.middleware.compression import CompressionMiddleware
@@ -105,6 +105,12 @@ class ZstdCompressionSettings(CompressionSettings):
         super().__post_init__()
 
 
+class Backends(TypedDict, total=False, extra_items=CompressionSettings):
+    gzip: GzipCompressionSettings
+    brotli: BrotliCompressionSettings
+    zstd: ZstdCompressionSettings
+
+
 @dataclass
 class CompressionConfig:
     """Configuration for response compression.
@@ -113,7 +119,7 @@ class CompressionConfig:
     using the ``compression_config`` key.
     """
 
-    backends: dict[str, CompressionSettings] = field(default_factory=dict)
+    backends: Backends = field(default_factory=Backends)
     """TODO."""
     builtin_backends: CompressionBackends | list[CompressionBackends] | None = "gzip"
     """TODO."""
@@ -128,14 +134,14 @@ class CompressionConfig:
     def __post_init__(self) -> None:
         if self.builtin_backends is not None:
             if isinstance(self.builtin_backends, str):
-                bb = {self.builtin_backends}
+                builtin_backends = {self.builtin_backends}
             else:
-                bb = self.builtin_backends
-            if "gzip" in bb and "gzip" not in self.backends:
+                builtin_backends = self.builtin_backends
+            if "gzip" in builtin_backends and "gzip" not in self.backends:
                 self.backends["gzip"] = GzipCompressionSettings()
-            if "brotli" in bb and "brotli" not in self.backends:
+            if "brotli" in builtin_backends and "brotli" not in self.backends:
                 self.backends["brotli"] = BrotliCompressionSettings()
-            if "zstd" in bb and "zstd" not in self.backends:
+            if "zstd" in builtin_backends and "zstd" not in self.backends:
                 self.backends["zstd"] = ZstdCompressionSettings()
 
         if not self.backends:
