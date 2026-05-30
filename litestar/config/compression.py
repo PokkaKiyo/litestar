@@ -105,7 +105,7 @@ class ZstdCompressionSettings(CompressionSettings):
         super().__post_init__()
 
 
-class Backends(TypedDict, total=False, extra_items=CompressionSettings):
+class Backends(TypedDict, total=False):
     gzip: GzipCompressionSettings
     brotli: BrotliCompressionSettings
     zstd: ZstdCompressionSettings
